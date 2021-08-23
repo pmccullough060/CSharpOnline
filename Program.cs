@@ -19,6 +19,9 @@ namespace CSharpOnline
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
+            //Adding the Monaco class to dependency injection.
+            builder.Services.AddScoped<Monaco>();
+
             await builder.Build().RunAsync();
         }
     }

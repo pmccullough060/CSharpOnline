@@ -22,7 +22,6 @@
 
     <!--Monaco editor used as a nuget package-->
     <script src="npm/node_modules/monaco-editor/min/vs/loader.js"></script>
-
     <script>
         var monacoInterop = {};
         monacoInterop.editors = {};
@@ -35,16 +34,14 @@
                 });
                 monacoInterop.editors[elementId] = editor;
             });
-
-            monacoInterop.getCode = function getCode(elementId) {
-                return monacoInterop.editors[elementId].getValue();
-            }
-
-            monacoInterop.setCode = function setCode(elementId, code) {
-                monacoInterop.editors[elementId].setValue(code);
-            }
-
-            window.monacoInterop = monacoInterop;
+        }
+        monacoInterop.getCode = function getCode(elementId) {
+            return monacoInterop.editors[elementId].getValue();
+        }
+        monacoInterop.setCode = function setCode(elementId, code) {
+            monacoInterop.editors[elementId].setValue(code);
+        }
+        window.monacoInterop = monacoInterop;
     </script>
 
 
