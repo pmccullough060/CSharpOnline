@@ -27,6 +27,11 @@ namespace CSharpOnline.Pages
         [Inject]
         private Monaco Monaco { get; set; }
 
+        protected override Task OnInitializedAsync()
+        {
+            Compiler.InitializeMetadataReferences(Client);
+            return base.OnInitializedAsync();
+        }
 
         /// <summary>
         /// Invoked each time the component is rendered.
@@ -42,13 +47,19 @@ namespace CSharpOnline.Pages
             if (firstRender)
             {
                 Monaco.Initialize("container", DefaultCode, "csharp");
+                var result = Run();
             }
 
         }
 
-        public async Task Run()
+        public Task Run()
         {
-            //TOOD: complete method:
+            return Compiler.WhenReady(RunInternal);
+        }
+
+        async Task RunInternal()
+        {
+
         }
 
 

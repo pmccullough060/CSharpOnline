@@ -1,7 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace CSharpOnline
@@ -28,5 +34,93 @@ namespace CSharpOnline
         private static Task InitializationTask;
         private static List<MetadataReference> References;
 
+        public static void InitializeMetadataReferences(HttpClient client)
+        {
+            async Task InitializeInternal()
+            {
+                BlazorBoot response = await client.GetFromJsonAsync<BlazorBoot>("_framework/blazor.boot.json");
+                HttpResponseMessage[] assemblies = await Task.WhenAll(response.resources.assembly.Keys.Select(x => client.GetAsync("_framework/_bin/" + x)));
+
+                List<MetadataReference> references = new List<MetadataReference>(assemblies.Length);
+
+                foreach (var asm in assemblies)
+                {
+                    using (var task = await asm.Content.ReadAsStreamAsync())
+                    {
+                        references.Add(MetadataReference.CreateFromStream(task));
+                    }
+                }
+
+                References = references;
+            }
+
+            InitializationTask = InitializeInternal();
+        }
+
+        public static Task WhenReady(Func<Task> action)
+        {
+            if (InitializationTask.Status != TaskStatus.RanToCompletion)
+            {
+                //Creates a continuation that is continued with once the task is completed:
+                return InitializationTask.ContinueWith(x => action());
+            }
+            else
+            {
+                return action();
+            }
+        }
+
+        public static (bool success, Assembly asm) LoadSource(string source)
+        {
+            CSharpCompilation compilation = CSharpCompilation.Create("DynamicCode")
+                                               .WithOptions(new CSharpCompilationOptions(OutputKind.ConsoleApplication))
+                                               .AddReferences(References)
+                                               .AddSyntaxTrees(CSharpSyntaxTree
+                                               .ParseText(source, new CSharpParseOptions(LanguageVersion.Preview)));
+
+            ImmutableArray<Diagnostic> diagnostics = compilation.GetDiagnostics();
+
+            bool error = false;
+
+            foreach (Diagnostic diag in diagnostics)
+            {
+                switch (diag.Severity)
+                {
+                    case DiagnosticSeverity.Info:
+                        Console.WriteLine(diag.ToString());
+                        break;
+
+                    case DiagnosticSeverity.Warning:
+                        Console.WriteLine(diag.ToString());
+                        break;
+
+                    case DiagnosticSeverity.Error:
+                        error = true;
+                        Console.WriteLine(diag.ToString());
+                        break;
+                }
+            }
+
+            if (error)
+            {
+                return (false, null);
+            }
+
+            using (var outputAssembly = new MemoryStream())
+            {
+                compilation.Emit(outputAssembly);
+
+                return (true, Assembly.Load(outputAssembly.ToArray()));
+            }
+
+        }
+
+        public static string Format(string source)
+        {
+            var tree = CSharpSyntaxTree.ParseText(source);
+            var root = tree.GetRoot();
+            var normalized = root.NormalizeWhitespace();
+            return normalized.ToString();
+        }
     }
 }
